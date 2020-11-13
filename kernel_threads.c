@@ -30,6 +30,7 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
 
     CURPROC->thread_count++;                        /*auxanei ta thread tou pcb*/
     PTCB* ptcb=(PTCB*)xmalloc(sizeof(PTCB));
+
     ptcb->refcount=1;
     ptcb->task=task;
     ptcb->argl=argl;
@@ -49,7 +50,8 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
 
     tcb->ptcb=ptcb;
     ptcb->tcb=tcb;                        /*sundeei to tcb me ptcb*/
-    rlist_push_back(& CURPROC->ptcb_list, & ptcb->ptcb_list_node);
+     // fprintf(stdout, "%lu\n", (uint*)(Tid_t)ptcb);
+    rlist_push_back(&CURPROC->ptcb_list, &ptcb->ptcb_list_node);
     wakeup(ptcb->tcb);
     return (Tid_t) ptcb;
     }
@@ -71,27 +73,51 @@ int sys_ThreadJoin(Tid_t tid, int* exitval)
 {
 	PTCB* ptcb= (PTCB*) tid;
   PTCB* ptcb_found=NULL;
+
+  //  fprintf(stdout, "%s\n", "start");
+  //fprintf(stdout, "%lu\n", (uint*)(Tid_t)ptcb);
+//  for(int i=0; i<rlist_len(&CURPROC->ptcb_list); i++){
+ //   rlnode *node=rlist_pop_front(&CURPROC->ptcb_list);
+ //   fprintf(stdout, "%lu\n", (uint*) (node->ptcb));
+ //   rlist_push_back(&CURPROC->ptcb_list,&node->ptcb->ptcb_list_node);
+ // }
+  //fprintf(stdout, "%s\n", "end");
   if(rlist_find(&CURPROC->ptcb_list, ptcb,NULL)){
    ptcb_found=ptcb;
+
   }
   else{
+    //fprintf(stdout, "%s\n", "1");
     return -1;
   }
-  if((Tid_t) CURTHREAD==tid){   //can not join self
-    return -1;
-  }
-  if(ptcb_found->exited==1 || ptcb->detached==1){
+    
+  if((Tid_t)(CURTHREAD->ptcb)==tid){   //can not join self
+  //fprintf(stdout, "%s\n", "2");
     return -1;
   }
   ptcb_found->refcount++;
-  while(ptcb_found->exited!=1 && ptcb->detached!=1){ //when a thread detached or exited wake up
+
+  while(ptcb_found->exited!=1 && ptcb_found->detached!=1){ //when a thread detached or exited wake up
+    //fprintf(stdout, "%s\n", "dd");
     kernel_wait(&ptcb_found->exit_cv,SCHED_USER);
   }
+ 
   ptcb_found->refcount--;
-  if(ptcb_found->refcount==0){
-    rlist_remove(& ptcb->ptcb_list_node);
-    free(ptcb);
+  //fprintf(stdout, "%d\n", (int)exitval);
+  if(ptcb_found->detached==1 /*&& ptcb_found->exited==1*/){
+   // fprintf(stdout, "%s\n", "3");
+    return -1;
   }
+  if(ptcb_found->exited==1){
+   if(exitval!=NULL){
+    exitval=&ptcb_found->exitval;
+   }
+  }
+
+  if(ptcb_found->refcount==0){
+   rlist_remove(&ptcb_found->ptcb_list_node);
+   free(ptcb_found);
+   }
   return 0;
 }
 
@@ -103,22 +129,25 @@ int sys_ThreadDetach(Tid_t tid)
 	PTCB* ptcb= (PTCB*) tid;
   PTCB* ptcb_found=NULL;
 
+
   if(rlist_find(&CURPROC->ptcb_list,ptcb,NULL)){
    ptcb_found=ptcb;
-   //fprintf(stdout, "%d\n", ptcb->exited);
+   //fprintf(stdout, "%s\n", "detach");
+   //fprintf(stdout, "%lu\n", (uint)(Tid_t)ptcb_found);
+   
   }else{
-    //fprintf(stdout, "%s\n", "bbb");
     return -1;
   }
 
   if(ptcb_found->exited==1 ){
+   // fprintf(stdout, "%s\n", "bbb");
    return -1;
   }
-   //fprintf(stdout, "%d\n", ptcb->exited);
   ptcb_found->detached=1;
+  if(ptcb_found->refcount>=1){
   kernel_broadcast(&ptcb_found->exit_cv);
-  //fprintf(stdout, "%d\n", ptcb->exited);
-  ptcb_found->refcount=1;     /*non joinable thread*/
+  }
+  ptcb_found->refcount=0;     /*non joinable thread*/
   return 0;
 }
 /**
@@ -126,8 +155,6 @@ int sys_ThreadDetach(Tid_t tid)
   */
 void sys_ThreadExit(int exitval)
 {
-
-
   PTCB* ptcb=CURTHREAD->ptcb;
   ptcb->refcount--;
   ptcb->exited=1;
@@ -135,11 +162,14 @@ void sys_ThreadExit(int exitval)
 
   CURPROC->thread_count--;
   // kernelbroadcast
+  if(ptcb->refcount>=1){
   kernel_broadcast(& ptcb->exit_cv);
-
+  }
   /*an einai to teleytaio thread*/
  if (CURPROC->thread_count==1){
-   PCB *curproc = CURPROC;  /* cache for efficiency */
+   PCB *curproc = CURPROC;
+    /* cache for efficiency */
+  
 
   /* Do all the other cleanup we want here, close files etc. */
   if(curproc->args) {
@@ -170,7 +200,7 @@ void sys_ThreadExit(int exitval)
     rlist_append(& initpcb->exited_list, &curproc->exited_list);
     kernel_broadcast(& initpcb->child_exit);
   }
-
+ 
   /* Put me into my parent's exited list */
   if(curproc->parent != NULL) {   /* Maybe this is init */
     rlist_push_front(& curproc->parent->exited_list, &curproc->exited_node);
@@ -184,6 +214,7 @@ void sys_ThreadExit(int exitval)
   curproc->pstate = ZOMBIE;
   curproc->exitval = exitval;
  }
+
   if(ptcb->refcount==0){
     rlist_remove(& ptcb->ptcb_list_node);
     free(ptcb);

@@ -206,7 +206,7 @@ Pid_t sys_Exec(Task call, int argl, void* args)
     ptcb->tcb=tcb;
     tcb->ptcb=ptcb;
     rlnode_init(&newproc->ptcb_list,newproc);   //initialize 
-    rlist_push_back(&newproc->ptcb_list, & ptcb->ptcb_list_node);
+    rlist_push_back(&newproc->ptcb_list, &ptcb->ptcb_list_node);
     wakeup(newproc->main_thread);
   }
 

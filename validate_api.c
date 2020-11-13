@@ -942,16 +942,15 @@ BOOT_TEST(test_join_illegal_tid_gives_error,
 	int* illegal_ptr = (int*) -1;
 
 	ASSERT(ThreadJoin(NOTHREAD, illegal_ptr)==-1);
-
 	/* Test with random numbers. Since we only have one thread, any call is an illegal call. */
 	for(int i=0; i<100; i++) {
+
 		Tid_t random_tid = lrand48();
 		ASSERT(ThreadJoin(random_tid, illegal_ptr)==-1);
-	}
 
+	}
 	/* In addition, we cannot join ourselves ! */
 	ASSERT(ThreadJoin(ThreadSelf(), illegal_ptr)==-1);
-
 	return 0;
 }
 
@@ -1050,14 +1049,16 @@ BOOT_TEST(test_join_many_threads,
 	}
 
 	Tid_t joined_tid = CreateThread(joined_thread, 0, NULL);
+	//fprintf(stdout, "%s\n", "1");
 
 	int some_thread_joined = 0;
 
 	int joiner_thread(int argl, void* args) {
 		int retval;
 		int rc = ThreadJoin(joined_tid,&retval);
+		//fprintf(stdout, "%d\n", rc);
 		if(rc==0) some_thread_joined = 1;
-		ASSERT(rc==-1 || retval==5213);
+		ASSERT(rc==0 || retval==5213);
 		return 0;
 	}
 
@@ -1088,19 +1089,18 @@ BOOT_TEST(test_join_main_thread,
 		ASSERT(ThreadJoin(mttid, NULL)==0);
 		return 0;
 	}
-
+       
 	int main_thread(int argl, void* args) {
 		mttid = ThreadSelf();
 		ASSERT(CreateThread(notmain_thread,0,NULL)!=NOTHREAD);
 		return 42;
 	}
 
-
 	int status;
 	Exec(main_thread, 0, NULL);
 	WaitChild(NOPROC, &status);
 	ASSERT(status == 42);
-
+    
 	return 0;
 }
 
@@ -1138,26 +1138,36 @@ BOOT_TEST(test_detach_after_join,
 	/* A thread to be joined */
 	int joined_thread(int argl, void* args) {
 		sleep_thread(1);
+		//fprintf(stdout, "%s\n", "after detach");
+		//fprintf(stdout, "%lu\n",(uint*)ThreadSelf());
 		ThreadDetach(ThreadSelf());
 		return 5213;
 	}
 
 	Tid_t joined_tid = CreateThread(joined_thread, 0, NULL);
+	//fprintf(stdout, "%s\n", "main thread");
+     //fprintf(stdout, "%lu\n", (uint)joined_tid);
 
 	int joiner_thread(int argl, void* args) {
 		int retval;
+	   // fprintf(stdout, "%lu\n", (uint)joined_tid);
 		int rc = ThreadJoin(joined_tid,&retval);
 		ASSERT(rc==-1);
 		return 0;
 	}
 
 	Tid_t tids[5];
+	//fprintf(stdout, "%s\n", "loop");
 	for(int i=0;i<5;i++) {
 		tids[i] = CreateThread(joiner_thread,0,NULL);
+		//fprintf(stdout, "%s\n", "threads");
+		//fprintf(stdout, "%lu\n", (uint*)tids[i]);
 		ASSERT(tids[i]!=NOTHREAD);
 	}
 
 	for(int i=0;i<5;i++) {
+		//fprintf(stdout, "%s\n", "last join");
+		//fprintf(stdout, "%lu\n", (uint*)tids[i]);
 		ASSERT(ThreadJoin(tids[i], NULL)==0);
 	}
 
