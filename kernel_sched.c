@@ -94,10 +94,10 @@ Mutex active_threads_spinlock = MUTEX_INIT;
 
 #define THREAD_SIZE (THREAD_TCB_SIZE + THREAD_STACK_SIZE)
 #define NUM_OF_QUEUES 3 //Number of lists handling our threads, can change
-//define boost_pointer 30 This will be handling the boosting method utilised later
+#define boost_count 30 //This will be handling the boosting method utilised later
 //#define MMAPPED_THREAD_MEM
 #ifdef MMAPPED_THREAD_MEM
-
+int b_count=boost_count; //initialization of variable needed for boost
 /*
   Use mmap to allocate a thread. A more detailed implementation can allocate a
   "sentinel page", and change access to PROT_NONE, so that a stack overflow
@@ -271,10 +271,22 @@ static void sched_register_timeout(TCB* tcb, TimerDuration timeout)
 static void sched_queue_add(TCB* tcb)
 {
 	/* Insert at the end of the scheduling list */
-	rlist_push_back(&SCHED, &tcb->sched_node); //Inserting nodes at the end of our handling list
+	rlist_push_back(&SCHED[tcb->priority], &tcb->sched_node); //Inserting nodes at the end of our handling list
 
 	//have to implement boosting method(function)
-	
+	//boost
+	if(b_counter == 0){						//When  boost counter reaches 0, function starts
+		for(int i=0;i<NUM_OF_QUEUES-1;i++){			
+			rlnode* hd = &SCHED[i+1];
+			while(hd!=NULL && hd->next!=&SCHED[i+1]){
+				hd->tcb->priority=i;
+				hd=hd->next;
+			}
+			rlist_append(&SCHED[i],&SCHED[i+1]);
+		}
+		b_count=boost_count;				//Reset boost counter when we're finished
+	}
+
 	
 	
 	/* Restart possibly halted cores */
@@ -332,14 +344,14 @@ static void sched_wakeup_expired_timeouts()
   *** MUST BE CALLED WITH sched_spinlock HELD ***
 */
 static TCB* sched_queue_select(TCB* current)
-{
+{	
+	i=0;
 	/* Get the head of the SCHED list */
-	rlnode* sel = rlist_pop_front(&SCHED);
+	rlnode* sel = rlist_pop_front(&SCHED[i);
 
 	TCB* next_thread = sel->tcb; /* When the list is empty, this is NULL */
-	
-	i=0;
-	while(next_thread==NULL && i<=NUM_OF_QUEUES-1){				//Going through the whole list
+		
+	while(next_thread!=NULL && i<=NUM_OF_QUEUES-1){		//Going through the whole list
 		rlnode* sel = rlist_pop_front(&SCHED[i]);
 		next_thread = sel->tcb; /* When the list is empty, this is NULL */
 
