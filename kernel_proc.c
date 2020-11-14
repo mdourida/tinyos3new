@@ -314,7 +314,6 @@ Pid_t sys_WaitChild(Pid_t cpid, int* status)
 
 void sys_Exit(int exitval)
 {
-
   PCB *curproc = CURPROC;  /* cache for efficiency */
 
   /* First, store the exit status */
@@ -325,7 +324,6 @@ void sys_Exit(int exitval)
     If we are, we must wait until all child processes exit. 
    */
   if(get_pid(curproc)==1) {
-
     while(sys_WaitChild(NOPROC,NULL)!=NOPROC);
 
   } else {

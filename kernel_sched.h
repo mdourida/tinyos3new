@@ -114,7 +114,9 @@ typedef struct thread_control_block {
 	rlnode sched_node; /**< @brief Node to use when queueing in the scheduler queue */
 	TimerDuration its; /**< @brief Initial time-slice for this thread */
 	TimerDuration rts; /**< @brief Remaining time-slice for this thread */
-
+  
+  int priority;
+  
 	enum SCHED_CAUSE curr_cause; /**< @brief The endcause for the current time-slice */
 	enum SCHED_CAUSE last_cause; /**< @brief The endcause for the last time-slice */
 
@@ -255,6 +257,7 @@ void sleep_releasing(Thread_state newstate, Mutex* mx, enum SCHED_CAUSE cause, T
   and possibly switch to a different thread. The scheduler may decide that 
   it will renew the quantum for the current thread.
  */
+
 void yield(enum SCHED_CAUSE cause);
 
 /**

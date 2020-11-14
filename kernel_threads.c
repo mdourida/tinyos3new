@@ -50,7 +50,6 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
 
     tcb->ptcb=ptcb;
     ptcb->tcb=tcb;                        /*sundeei to tcb me ptcb*/
-     // fprintf(stdout, "%lu\n", (uint*)(Tid_t)ptcb);
     rlist_push_back(&CURPROC->ptcb_list, &ptcb->ptcb_list_node);
     wakeup(ptcb->tcb);
     return (Tid_t) ptcb;
@@ -62,7 +61,7 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
   @brief Return the Tid of the current thread.
  */
 Tid_t sys_ThreadSelf()
-{
+{ 
 	return (Tid_t) (CURTHREAD->ptcb);
 }
 

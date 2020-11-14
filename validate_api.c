@@ -1123,7 +1123,7 @@ BOOT_TEST(test_detach_main_thread,
 	Exec(main_thread, 0, NULL);
 	WaitChild(NOPROC, &status);
 	ASSERT(status == 42);
-
+   
 	return 0;
 }
 
