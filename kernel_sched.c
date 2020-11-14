@@ -93,7 +93,8 @@ Mutex active_threads_spinlock = MUTEX_INIT;
 	(((sizeof(TCB) + SYSTEM_PAGE_SIZE - 1) / SYSTEM_PAGE_SIZE) * SYSTEM_PAGE_SIZE)
 
 #define THREAD_SIZE (THREAD_TCB_SIZE + THREAD_STACK_SIZE)
-
+#define NUM_OF_QUEUES 3 //Number of lists handling our threads, can change
+//define boost_pointer 30 This will be handling the boosting method utilised later
 //#define MMAPPED_THREAD_MEM
 #ifdef MMAPPED_THREAD_MEM
 
@@ -225,7 +226,9 @@ void release_TCB(TCB* tcb)
   Both of these structures are protected by @c sched_spinlock.
 */
 
-rlnode SCHED; /* The scheduler queue */
+//rlnode SCHED; /* The scheduler queue */
+rlnode SCHED[NUM_OF_QUEUES]; /* The scheduler queue with a specific number of lists*/
+
 rlnode TIMEOUT_LIST; /* The list of threads with a timeout */
 Mutex sched_spinlock = MUTEX_INIT; /* spinlock for scheduler queue */
 
@@ -268,8 +271,12 @@ static void sched_register_timeout(TCB* tcb, TimerDuration timeout)
 static void sched_queue_add(TCB* tcb)
 {
 	/* Insert at the end of the scheduling list */
-	rlist_push_back(&SCHED, &tcb->sched_node);
+	rlist_push_back(&SCHED, &tcb->sched_node); //Inserting nodes at the end of our handling list
 
+	//have to implement boosting method(function)
+	
+	
+	
 	/* Restart possibly halted cores */
 	cpu_core_restart_one();
 }
@@ -330,7 +337,17 @@ static TCB* sched_queue_select(TCB* current)
 	rlnode* sel = rlist_pop_front(&SCHED);
 
 	TCB* next_thread = sel->tcb; /* When the list is empty, this is NULL */
+	
+	i=0;
+	while(next_thread==NULL && i<=NUM_OF_QUEUES-1){				//Going through the whole list
+		rlnode* sel = rlist_pop_front(&SCHED[i]);
+		next_thread = sel->tcb; /* When the list is empty, this is NULL */
 
+		i++;
+	}
+
+	
+	
 	if (next_thread == NULL)
 		next_thread = (current->state == READY) ? current : &CURCORE.idle_thread;
 
@@ -423,6 +440,24 @@ void yield(enum SCHED_CAUSE cause)
 	current->rts = remaining;
 	current->last_cause = current->curr_cause;
 	current->curr_cause = cause;
+
+	
+	//switch is written here to have the latest scheduler data available at any time
+		switch(cause){
+		case SCHED_QUANTUM:
+			if(current->priority<NUM_OF_QUEUES-1)					//check if priority can go lower, priority++ means it get lower
+				current->priority=current->priority+1;
+			break;
+		case SCHED_MUTEX:
+			if(current->priority<NUM_OF_QUEUES-1)					//same checks for mutex cause
+				current->priority=current->priority+1;
+			break;
+		case SCHED_IO: 
+			if(current->priority>0)							//check if priority can go higher, highest priority always at 0
+				current->priority=current->priority-1;
+			break;
+		default: break;									//every other case leads to the same priority
+	}
 
 	/* Wake up threads whose sleep timeout has expired */
 	sched_wakeup_expired_timeouts();
