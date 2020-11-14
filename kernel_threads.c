@@ -74,38 +74,25 @@ int sys_ThreadJoin(Tid_t tid, int* exitval)
 	PTCB* ptcb= (PTCB*) tid;
   PTCB* ptcb_found=NULL;
 
-  //  fprintf(stdout, "%s\n", "start");
-  //fprintf(stdout, "%lu\n", (uint*)(Tid_t)ptcb);
-//  for(int i=0; i<rlist_len(&CURPROC->ptcb_list); i++){
- //   rlnode *node=rlist_pop_front(&CURPROC->ptcb_list);
- //   fprintf(stdout, "%lu\n", (uint*) (node->ptcb));
- //   rlist_push_back(&CURPROC->ptcb_list,&node->ptcb->ptcb_list_node);
- // }
-  //fprintf(stdout, "%s\n", "end");
-  if(rlist_find(&CURPROC->ptcb_list, ptcb,NULL)){
-   ptcb_found=ptcb;
-
-  }
-  else{
-    //fprintf(stdout, "%s\n", "1");
+  
+   if(rlist_find(&CURPROC->ptcb_list, ptcb,NULL)){
+    ptcb_found=ptcb;
+   }
+   else{
     return -1;
-  }
-    
+   }
+
   if((Tid_t)(CURTHREAD->ptcb)==tid){   //can not join self
-  //fprintf(stdout, "%s\n", "2");
     return -1;
   }
   ptcb_found->refcount++;
-
+  
   while(ptcb_found->exited!=1 && ptcb_found->detached!=1){ //when a thread detached or exited wake up
-    //fprintf(stdout, "%s\n", "dd");
     kernel_wait(&ptcb_found->exit_cv,SCHED_USER);
   }
  
   ptcb_found->refcount--;
-  //fprintf(stdout, "%d\n", (int)exitval);
   if(ptcb_found->detached==1 /*&& ptcb_found->exited==1*/){
-   // fprintf(stdout, "%s\n", "3");
     return -1;
   }
   if(ptcb_found->exited==1){
@@ -114,9 +101,8 @@ int sys_ThreadJoin(Tid_t tid, int* exitval)
    }
   }
 
-  if(ptcb_found->refcount==0){
-   rlist_remove(&ptcb_found->ptcb_list_node);
-   free(ptcb_found);
+  if(CURTHREAD->ptcb->refcount==0 && ptcb_found->detached!=0 ){
+    free(ptcb_found);
    }
   return 0;
 }
@@ -129,18 +115,13 @@ int sys_ThreadDetach(Tid_t tid)
 	PTCB* ptcb= (PTCB*) tid;
   PTCB* ptcb_found=NULL;
 
-
   if(rlist_find(&CURPROC->ptcb_list,ptcb,NULL)){
    ptcb_found=ptcb;
-   //fprintf(stdout, "%s\n", "detach");
-   //fprintf(stdout, "%lu\n", (uint)(Tid_t)ptcb_found);
-   
   }else{
     return -1;
   }
 
   if(ptcb_found->exited==1 ){
-   // fprintf(stdout, "%s\n", "bbb");
    return -1;
   }
   ptcb_found->detached=1;
@@ -156,7 +137,7 @@ int sys_ThreadDetach(Tid_t tid)
 void sys_ThreadExit(int exitval)
 {
   PTCB* ptcb=CURTHREAD->ptcb;
-  ptcb->refcount--;
+  //ptcb->refcount--;
   ptcb->exited=1;
   ptcb->exitval=exitval;
 
@@ -165,7 +146,7 @@ void sys_ThreadExit(int exitval)
   if(ptcb->refcount>=1){
   kernel_broadcast(& ptcb->exit_cv);
   }
-  /*an einai to teleytaio thread*/
+  /*an einai to teleytaio thread*/ 
  if (CURPROC->thread_count==1){
    PCB *curproc = CURPROC;
     /* cache for efficiency */

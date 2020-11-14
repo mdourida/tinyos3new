@@ -1049,14 +1049,12 @@ BOOT_TEST(test_join_many_threads,
 	}
 
 	Tid_t joined_tid = CreateThread(joined_thread, 0, NULL);
-	//fprintf(stdout, "%s\n", "1");
 
 	int some_thread_joined = 0;
 
 	int joiner_thread(int argl, void* args) {
 		int retval;
 		int rc = ThreadJoin(joined_tid,&retval);
-		//fprintf(stdout, "%d\n", rc);
 		if(rc==0) some_thread_joined = 1;
 		ASSERT(rc==0 || retval==5213);
 		return 0;
@@ -1067,10 +1065,8 @@ BOOT_TEST(test_join_many_threads,
 		tids[i] = CreateThread(joiner_thread,0,NULL);
 		ASSERT(tids[i]!=NOTHREAD);
 	}
-
 	for(int i=0;i<5;i++) {
 		ASSERT(ThreadJoin(tids[i], NULL)==0);
-		/* tids[i] should be cleaned by ThreadJoin */
 		ASSERT(ThreadDetach(tids[i])==-1);
 	}
 
@@ -1138,36 +1134,26 @@ BOOT_TEST(test_detach_after_join,
 	/* A thread to be joined */
 	int joined_thread(int argl, void* args) {
 		sleep_thread(1);
-		//fprintf(stdout, "%s\n", "after detach");
-		//fprintf(stdout, "%lu\n",(uint*)ThreadSelf());
 		ThreadDetach(ThreadSelf());
 		return 5213;
 	}
 
 	Tid_t joined_tid = CreateThread(joined_thread, 0, NULL);
-	//fprintf(stdout, "%s\n", "main thread");
-     //fprintf(stdout, "%lu\n", (uint)joined_tid);
 
 	int joiner_thread(int argl, void* args) {
 		int retval;
-	   // fprintf(stdout, "%lu\n", (uint)joined_tid);
 		int rc = ThreadJoin(joined_tid,&retval);
 		ASSERT(rc==-1);
 		return 0;
 	}
 
 	Tid_t tids[5];
-	//fprintf(stdout, "%s\n", "loop");
 	for(int i=0;i<5;i++) {
 		tids[i] = CreateThread(joiner_thread,0,NULL);
-		//fprintf(stdout, "%s\n", "threads");
-		//fprintf(stdout, "%lu\n", (uint*)tids[i]);
 		ASSERT(tids[i]!=NOTHREAD);
 	}
 
 	for(int i=0;i<5;i++) {
-		//fprintf(stdout, "%s\n", "last join");
-		//fprintf(stdout, "%lu\n", (uint*)tids[i]);
 		ASSERT(ThreadJoin(tids[i], NULL)==0);
 	}
 
