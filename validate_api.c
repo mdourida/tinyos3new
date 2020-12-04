@@ -1081,25 +1081,31 @@ BOOT_TEST(test_join_main_thread,
 
 	Tid_t mttid;
 
-	int notmain_thread(int argl, void* args) {
+	int notmain_thread(int argl, void* args) {	
 		ASSERT(ThreadJoin(mttid, NULL)==0);
 		return 0;
 	}
-       
+
 	int main_thread(int argl, void* args) {
 		mttid = ThreadSelf();
 		ASSERT(CreateThread(notmain_thread,0,NULL)!=NOTHREAD);
 		return 42;
 	}
 
-	int status;
-	Exec(main_thread, 0, NULL);
-	WaitChild(NOPROC, &status);
-	ASSERT(status == 42);
-    
+	ASSERT(run_get_status(main_thread, 0, NULL) == 42);
 	return 0;
 }
 
+int run_get_status(Task task, int argl, void* args)
+{
+	Pid_t pid = Exec(task, argl, args);
+	ASSERT(pid!=NOPROC);
+
+	int exitval;
+	ASSERT(WaitChild(pid, &exitval)==pid);
+
+	return exitval;
+}
 
 BOOT_TEST(test_detach_main_thread,
 	"Test that the main thread can be detached")
@@ -1152,7 +1158,6 @@ BOOT_TEST(test_detach_after_join,
 		tids[i] = CreateThread(joiner_thread,0,NULL);
 		ASSERT(tids[i]!=NOTHREAD);
 	}
-
 	for(int i=0;i<5;i++) {
 		ASSERT(ThreadJoin(tids[i], NULL)==0);
 	}
@@ -1168,7 +1173,7 @@ BOOT_TEST(test_exit_many_threads,
 {
 
 	int task(int argl, void* args) {
-		fibo(40);
+		fibo(30);
 		Exit(40 + argl);
 		return 0;
 	}
@@ -1422,11 +1427,10 @@ int data_producer(int argl, void* args)
 /* Takes one integer argument. Reads its standard input to exhaustion,
    asserts it read that many bytes. */
 int data_consumer(int argl, void* args) 
-{
+{ 
 	assert(argl == sizeof(int));
 	int nbytes = *(int*)args;
 	Close(1);
-
 	char buffer[16384];
 	int count = 0;
 
@@ -1464,10 +1468,10 @@ BOOT_TEST(test_pipe_single_producer,
 		Dup2(pipe.write, 1);
 		Close(pipe.write);
 	}
-
 	int N = 10000000;
 	ASSERT(Exec(data_consumer, sizeof(N), &N)!=NOPROC);
 	ASSERT(Exec(data_producer, sizeof(N), &N)!=NOPROC);
+
 
 	Close(0);
 	Close(1);

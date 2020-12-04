@@ -218,6 +218,8 @@ TCB* spawn_thread(PCB* pcb, void (*func)());
 */
 int wakeup(TCB* tcb);
 
+void boost();
+
 /** 
   @brief Block the current thread.
 

@@ -31,7 +31,7 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
     CURPROC->thread_count++;                        /*auxanei ta thread tou pcb*/
     PTCB* ptcb=(PTCB*)xmalloc(sizeof(PTCB));
 
-    ptcb->refcount=1;
+    ptcb->refcount=0;
     ptcb->task=task;
     ptcb->argl=argl;
 
@@ -41,13 +41,12 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
     else{
      ptcb->args=NULL;
     }
-
     ptcb->exited=0;
     ptcb->detached=0;
     ptcb->exit_cv=COND_INIT;
     ptcb->exitval=CURPROC->exitval;
     rlnode_init(&ptcb->ptcb_list_node,ptcb);
-
+    
     tcb->ptcb=ptcb;
     ptcb->tcb=tcb;                        /*sundeei to tcb me ptcb*/
     rlist_push_back(&CURPROC->ptcb_list, &ptcb->ptcb_list_node);
@@ -72,8 +71,6 @@ int sys_ThreadJoin(Tid_t tid, int* exitval)
 {
 	PTCB* ptcb= (PTCB*) tid;
   PTCB* ptcb_found=NULL;
-
-  
    if(rlist_find(&CURPROC->ptcb_list, ptcb,NULL)){
     ptcb_found=ptcb;
    }
@@ -85,11 +82,9 @@ int sys_ThreadJoin(Tid_t tid, int* exitval)
     return -1;
   }
   ptcb_found->refcount++;
-  
-  while(ptcb_found->exited!=1 && ptcb_found->detached!=1){ //when a thread detached or exited wake up
+  while(ptcb_found->exited!=1 && ptcb_found->detached!=1 ){ //when a thread detached or exited wake up
     kernel_wait(&ptcb_found->exit_cv,SCHED_USER);
   }
- 
   ptcb_found->refcount--;
   if(ptcb_found->detached==1 /*&& ptcb_found->exited==1*/){
     return -1;
@@ -100,7 +95,8 @@ int sys_ThreadJoin(Tid_t tid, int* exitval)
    }
   }
 
-  if(CURTHREAD->ptcb->refcount==0 && ptcb_found->detached!=0 ){
+  if(ptcb_found->refcount==0 && ptcb_found->detached!=0 ){
+    rlist_remove(& ptcb_found->ptcb_list_node);
     free(ptcb_found);
    }
   return 0;
@@ -136,17 +132,18 @@ int sys_ThreadDetach(Tid_t tid)
 void sys_ThreadExit(int exitval)
 {
   PTCB* ptcb=CURTHREAD->ptcb;
-  //ptcb->refcount--;
   ptcb->exited=1;
   ptcb->exitval=exitval;
 
-  CURPROC->thread_count--;
-  // kernelbroadcast
-  if(ptcb->refcount>=1){
+    // kernelbroadcast 
+  if(ptcb->refcount>0){
   kernel_broadcast(& ptcb->exit_cv);
   }
+  CURPROC->thread_count--;
+  PCB *curproc = CURPROC;
+
   /*an einai to teleytaio thread*/ 
- if (CURPROC->thread_count==1){
+ if (CURPROC->thread_count==0){
    PCB *curproc = CURPROC;
     /* cache for efficiency */
   
@@ -164,6 +161,7 @@ void sys_ThreadExit(int exitval)
       curproc->FIDT[i] = NULL;
     }
   }
+  if(get_pid(curproc)!=1){
 
   /* Reparent any children of the exiting process to the 
      initial task */
@@ -186,19 +184,20 @@ void sys_ThreadExit(int exitval)
     rlist_push_front(& curproc->parent->exited_list, &curproc->exited_node);
     kernel_broadcast(& curproc->parent->child_exit);
   }
-
+     while(!is_rlist_empty(&curproc->ptcb_list)){
+     PTCB* ptcb_temp=rlist_pop_front(&curproc->ptcb_list)->ptcb;
+     assert(ptcb_temp!=NULL);
+     free(ptcb_temp);
+     }
+  }
   /* Disconnect my main_thread */
   curproc->main_thread = NULL;
 
   /* Now, mark the process as exited. */
   curproc->pstate = ZOMBIE;
-  curproc->exitval = exitval;
+  //curproc->exitval = exitval;
  }
 
-  if(ptcb->refcount==0){
-    rlist_remove(& ptcb->ptcb_list_node);
-    free(ptcb);
-  }
- 
+
  kernel_sleep(EXITED, SCHED_USER);
 }
