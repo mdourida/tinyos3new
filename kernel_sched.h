@@ -23,6 +23,7 @@
 #include "bios.h"
 #include "tinyos.h"
 #include "util.h"
+#include "kernel_proc.h"
 
 /*****************************
  *
@@ -100,8 +101,8 @@ enum SCHED_CAUSE {
 typedef struct thread_control_block {
 
 	PCB* owner_pcb; /**< @brief This is null for a free TCB */
-  PTCB* ptcb;  //pointer to ptcb
-
+  PTCB* ptcb;
+  int priority;
 	cpu_context_t context; /**< @brief The thread context */
 	Thread_type type; /**< @brief The type of thread */
 	Thread_state state; /**< @brief The state of the thread */
@@ -114,9 +115,7 @@ typedef struct thread_control_block {
 	rlnode sched_node; /**< @brief Node to use when queueing in the scheduler queue */
 	TimerDuration its; /**< @brief Initial time-slice for this thread */
 	TimerDuration rts; /**< @brief Remaining time-slice for this thread */
-  
-  int priority;
-  
+
 	enum SCHED_CAUSE curr_cause; /**< @brief The endcause for the current time-slice */
 	enum SCHED_CAUSE last_cause; /**< @brief The endcause for the last time-slice */
 
@@ -161,9 +160,8 @@ typedef struct core_control_block {
 /** @brief the array of Core Control Blocks (CCB) for the kernel */
 extern CCB cctx[MAX_CORES];
 
-#define CURTHREAD (CURCORE.current_thread) //diko m
-#define CURCORE (cctx[cpu_core_id])        //diko m
-/**  
+
+/** 
   @brief The current thread.
 
   This function returns the TCB of the calling thread. Via this function,
@@ -218,8 +216,6 @@ TCB* spawn_thread(PCB* pcb, void (*func)());
 */
 int wakeup(TCB* tcb);
 
-void boost();
-
 /** 
   @brief Block the current thread.
 
@@ -259,7 +255,6 @@ void sleep_releasing(Thread_state newstate, Mutex* mx, enum SCHED_CAUSE cause, T
   and possibly switch to a different thread. The scheduler may decide that 
   it will renew the quantum for the current thread.
  */
-
 void yield(enum SCHED_CAUSE cause);
 
 /**

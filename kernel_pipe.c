@@ -74,15 +74,15 @@ int pipe_write(void* this,const char *buf, unsigned int size){
         p->w_position=(p->w_position+1)%PIPE_BUFFER_SIZE; //next write position for bounded buffer
         count++; 
         if ((p->w_position+1)%PIPE_BUFFER_SIZE==p->r_position){
-        	kernel_broadcast(&(p->has_data)); 
-    		kernel_wait(&(p->has_space), SCHED_PIPE);
+        	kernel_broadcast(&p->has_data);
+    		kernel_wait(&p->has_space, SCHED_PIPE);
     		break;
 
         }
 	}
 
 	if (count==size || count==PIPE_BUFFER_SIZE){
-		kernel_broadcast(&(p->has_data));
+		kernel_broadcast(&p->has_data);
   		return count; //returns number of bytes copied in pipe buffer
 
 }
@@ -119,19 +119,19 @@ if (p->writer==NULL){
 
 }
 
- while(count<size && count<PIPE_BUFFER_SIZE ){
+ while(count<size && count<=PIPE_BUFFER_SIZE ){
    buf[count]=p->BUFFER[p->r_position];
    p->BUFFER[p->r_position]=0;        //read and delete element
    p->r_position=(p->r_position+1)%PIPE_BUFFER_SIZE; 
    count++;
    if ((p->w_position+1)%PIPE_BUFFER_SIZE==p->r_position){
-        	kernel_broadcast(&(p->has_space)); 
-    		kernel_wait(&(p->has_data), SCHED_PIPE);
+        	kernel_broadcast(&p->has_space); 
+    		kernel_wait(&p->has_data, SCHED_PIPE);
     		break;
 
         }
   }if (count==size || count==PIPE_BUFFER_SIZE){
-		kernel_broadcast(&(p->has_space));
+		kernel_broadcast(&p->has_space);
   		return count; //returns number of bytes copied in pipe buffer
 
 	}

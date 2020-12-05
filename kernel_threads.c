@@ -10,10 +10,10 @@
 void start_thread(){
   int exitval;
 
-  Task call= CURTHREAD->ptcb->task;
+  Task call= cur_thread()->ptcb->task;
 
-  int argl = CURTHREAD->ptcb->argl;
-  void* args = CURTHREAD->ptcb->args;
+  int argl = cur_thread()->ptcb->argl;
+  void* args = cur_thread()->ptcb->args;
 
   exitval = call(argl,args);
   ThreadExit(exitval);
@@ -61,7 +61,7 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
  */
 Tid_t sys_ThreadSelf()
 { 
-	return (Tid_t) (CURTHREAD->ptcb);
+  return (Tid_t) cur_thread()->ptcb;
 }
 
 /**
@@ -69,7 +69,7 @@ Tid_t sys_ThreadSelf()
   */
 int sys_ThreadJoin(Tid_t tid, int* exitval)
 {
-	PTCB* ptcb= (PTCB*) tid;
+  PTCB* ptcb= (PTCB*) tid;
   PTCB* ptcb_found=NULL;
    if(rlist_find(&CURPROC->ptcb_list, ptcb,NULL)){
     ptcb_found=ptcb;
@@ -78,7 +78,7 @@ int sys_ThreadJoin(Tid_t tid, int* exitval)
     return -1;
    }
 
-  if((Tid_t)(CURTHREAD->ptcb)==tid){   //can not join self
+  if((Tid_t)(cur_thread()->ptcb)==tid){   //can not join self
     return -1;
   }
   ptcb_found->refcount++;
@@ -107,7 +107,7 @@ int sys_ThreadJoin(Tid_t tid, int* exitval)
   */
 int sys_ThreadDetach(Tid_t tid)
 {
-	PTCB* ptcb= (PTCB*) tid;
+  PTCB* ptcb= (PTCB*) tid;
   PTCB* ptcb_found=NULL;
 
   if(rlist_find(&CURPROC->ptcb_list,ptcb,NULL)){
@@ -131,7 +131,7 @@ int sys_ThreadDetach(Tid_t tid)
   */
 void sys_ThreadExit(int exitval)
 {
-  PTCB* ptcb=CURTHREAD->ptcb;
+  PTCB* ptcb=cur_thread()->ptcb;
   ptcb->exited=1;
   ptcb->exitval=exitval;
 
@@ -140,7 +140,6 @@ void sys_ThreadExit(int exitval)
   kernel_broadcast(& ptcb->exit_cv);
   }
   CURPROC->thread_count--;
-  PCB *curproc = CURPROC;
 
   /*an einai to teleytaio thread*/ 
  if (CURPROC->thread_count==0){

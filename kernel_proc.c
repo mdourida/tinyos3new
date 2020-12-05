@@ -48,7 +48,6 @@ static inline void initialize_PCB(PCB* pcb)
   pcb->child_exit = COND_INIT;
 }
 
-
 static PCB* pcb_freelist;
 
 void initialize_processes()
@@ -208,7 +207,8 @@ Pid_t sys_Exec(Task call, int argl, void* args)
     wakeup(newproc->main_thread);
   }
 
- finish:
+
+finish:
   return get_pid(newproc);
 }
 
@@ -233,6 +233,7 @@ static void cleanup_zombie(PCB* pcb, int* status)
 
   rlist_remove(& pcb->children_node);
   rlist_remove(& pcb->exited_node);
+
   release_PCB(pcb);
 }
 
@@ -257,6 +258,7 @@ static Pid_t wait_for_specific_child(Pid_t cpid, int* status)
   /* Ok, child is a legal child of mine. Wait for it to exit. */
   while(child->pstate == ALIVE)
     kernel_wait(& parent->child_exit, SCHED_USER);
+  
   cleanup_zombie(child, status);
   
 finish:
@@ -328,7 +330,6 @@ void sys_Exit(int exitval)
   } 
  sys_ThreadExit(exitval);
 }
-
 
 
 
